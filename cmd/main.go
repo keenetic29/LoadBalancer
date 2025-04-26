@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"loadbalancer/internal/config"
-	"loadbalancer/internal/interfaces/handlers"
+	"loadbalancer/internal/handlers"
 	"loadbalancer/internal/repositories"
 	"loadbalancer/internal/usecases"
 	"loadbalancer/pkg/httputil"
@@ -50,9 +50,7 @@ func main() {
 		}(port)
 	}
 	
-	// Даем серверам время запуститься
-	time.Sleep(100 * time.Millisecond)
-
+	wg.Wait()
 
 	// Загрузка конфигурации
 	cfg, err := config.LoadConfig("config.json")
