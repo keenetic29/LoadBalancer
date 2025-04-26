@@ -1,14 +1,15 @@
 package repositories
 
 import (
+	"fmt"
 	"sync"
-	
+
 	"loadbalancer/internal/domain"
 )
 
 type MemoryServerRepository struct {
 	servers []*domain.Server
-	current uint64
+	current int
 	mu      sync.Mutex
 }
 
@@ -22,31 +23,48 @@ func NewMemoryServerRepository(backends []string) *MemoryServerRepository {
 	return &MemoryServerRepository{servers: servers}
 }
 
-func (r *MemoryServerRepository) GetAll() ([]*domain.Server, error) {
+func (r *MemoryServerRepository) GetAll() []*domain.Server {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.servers, nil
+
+	servers := make([]*domain.Server, len(r.servers))
+	copy(servers, r.servers)
+	return servers
 }
 
-func (r *MemoryServerRepository) GetNext() (*domain.Server, error) {
+func (r *MemoryServerRepository) UpdateHealth(server *domain.Server, healthy bool) {
 	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, s := range r.servers {
+		if s.URL.String() == server.URL.String() {
+			s.Healthy = healthy
+			break
+		}
+	}
+}
+
+
+func (r *MemoryServerRepository) GetNext() (*domain.Server, error) {
+    r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if len(r.servers) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("no servers available")
 	}
 
-	originalIndex := r.current
+	startIdx := r.current
 	for {
-		server := r.servers[r.current%uint64(len(r.servers))]
-		r.current++
+		server := r.servers[r.current]
+		r.current = (r.current + 1) % len(r.servers) // Круговая очередь
 
 		if server.Healthy {
 			return server, nil
 		}
 
-		if r.current%uint64(len(r.servers)) == originalIndex%uint64(len(r.servers)) {
-			return nil, nil
+		// Прошли все серверы и не нашли здоровый
+		if r.current == startIdx {
+			return nil, fmt.Errorf("no healthy servers available")
 		}
 	}
 }
@@ -62,4 +80,10 @@ func (r *MemoryServerRepository) MarkUnhealthy(server *domain.Server) error {
 		}
 	}
 	return nil
+}
+
+func (r *MemoryServerRepository) Count() int {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    return len(r.servers)
 }
