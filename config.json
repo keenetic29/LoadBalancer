@@ -1,8 +1,14 @@
 {
-    "port": "8080",
-    "backends": [
+  "port": "8080",
+  "backends": [
       "http://localhost:8081",
       "http://localhost:8082",
       "http://localhost:8083"
-    ]
+  ],
+  "rate_limit": {
+      "default_capacity": 10,
+      "default_rate_per_sec": 1,
+      "refill_period": "1s"
+  },
+  "clients_db": "clients.json"
 }

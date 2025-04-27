@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"loadbalancer/internal/config"
@@ -97,41 +101,60 @@ func extractPortsFromBackends(backends []string) ([]int, error) {
 
 
 func main() {
-	// Загрузка конфигурации
+	// загрузка конфигов
 	cfg, err := config.LoadConfig("config.json")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Извлекаем порты из backend URL'ов
+	// извлечение портов 
 	ports, err := extractPortsFromBackends(cfg.Backends)
 	if err != nil {
 		log.Fatalf("Failed to extract ports from backends: %v", err)
 	}
 
 	ready := make(chan struct{})
-
 	for _, port := range ports {
 		go startTestServer(port, ready)
 	}
 
-	// Ждем подтверждения от всех серверов
+	// ждем готовности всех серверов
 	for i := 0; i < len(ports); i++ {
 		<-ready
 	}
-
 	log.Println("All test servers are ready!")
 
-
-	// Инициализация зависимостей
+	// внедрение зависимостей
 	serverRepo := repositories.NewMemoryServerRepository(cfg.Backends)
 	healthChecker := util.NewHealthChecker(2 * time.Second)
 	lbUseCase := usecases.NewLoadBalancer(serverRepo, healthChecker)
 	handler := handlers.NewLoadBalancerHandler(lbUseCase)
 
-	// Запуск сервера
-	log.Printf("Starting load balancer on port %s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	server := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: handler,
 	}
+
+	// канал для прослушивания сигналов
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		log.Printf("Starting load balancer on port %s", cfg.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	<-stop
+	log.Println("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
+	}
+
+	log.Println("Server gracefully stopped")
 }
