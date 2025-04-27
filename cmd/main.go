@@ -13,11 +13,10 @@ import (
 	"loadbalancer/internal/handlers"
 	"loadbalancer/internal/repositories"
 	"loadbalancer/internal/usecases"
-	"loadbalancer/pkg/httputil"
+	util "loadbalancer/pkg/httputil"
 )
 
-// Запускает тестовый сервер на указанном порту
-func startTestServer(port int) {
+func startTestServer(port int, ready chan<- struct{}) {
 	mux := http.NewServeMux()
 
 	isAlive := true
@@ -53,6 +52,8 @@ func startTestServer(port int) {
 
 	go func() {
 		log.Printf("Starting test server on port %d", port)
+		// <- Вот здесь говорим что сервер запущен
+		ready <- struct{}{}
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Test server on port %d failed: %v", port, err)
 		}
@@ -108,20 +109,23 @@ func main() {
 		log.Fatalf("Failed to extract ports from backends: %v", err)
 	}
 
-	var wg sync.WaitGroup
+	ready := make(chan struct{})
+
 	for _, port := range ports {
-		wg.Add(1)
-		go func(p int) {
-			defer wg.Done()
-			startTestServer(p)
-		}(port)
+		go startTestServer(port, ready)
 	}
 
-	wg.Wait()
+	// Ждем подтверждения от всех серверов
+	for i := 0; i < len(ports); i++ {
+		<-ready
+	}
+
+	log.Println("All test servers are ready!")
+
 
 	// Инициализация зависимостей
 	serverRepo := repositories.NewMemoryServerRepository(cfg.Backends)
-	healthChecker := httputil.NewHealthChecker(2 * time.Second)
+	healthChecker := util.NewHealthChecker(2 * time.Second)
 	lbUseCase := usecases.NewLoadBalancer(serverRepo, healthChecker)
 	handler := handlers.NewLoadBalancerHandler(lbUseCase)
 
