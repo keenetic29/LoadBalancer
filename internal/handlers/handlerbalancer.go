@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"loadbalancer/internal/interfaces/handlers"
+	"loadbalancer/internal/interfaces/repositories"
 	"loadbalancer/internal/interfaces/usecases"
 	"loadbalancer/internal/ratelimiter"
 )
@@ -15,14 +16,24 @@ type loadBalancerHandler struct {
     limiterManager *ratelimiter.LimiterManager
 }
 
-func NewLoadBalancerHandler(uc usecases.LoadBalancerUseCase) handlers.LoadBalancerHandler {
-    limiter := ratelimiter.NewLimiterManager(10, 1, time.Second) // 10 токенов, пополнение 1 токен/сек
-    return &loadBalancerHandler{
+func NewLoadBalancerHandler(
+	uc usecases.LoadBalancerUseCase,
+	clientRepo repositories.ClientRepository,
+	defaultCapacity int,
+	defaultRatePerSec int,
+	refillPeriod time.Duration,
+) handlers.LoadBalancerHandler {
+	limiter := ratelimiter.NewLimiterManager(
+		clientRepo,
+		defaultCapacity,
+		defaultRatePerSec,
+		refillPeriod,
+	)
+	return &loadBalancerHandler{
 		useCase:        uc,
 		limiterManager: limiter,
 	}
 }
-
 func (h *loadBalancerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

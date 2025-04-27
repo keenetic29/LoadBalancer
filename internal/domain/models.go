@@ -1,6 +1,9 @@
 package domain
 
-import "net/url"
+import (
+	"net/url"
+	"time"
+)
 
 type Server struct {
 	URL     *url.URL
@@ -14,3 +17,20 @@ func NewServer(rawurl string) (*Server, error) {
 	}
 	return &Server{URL: u, Healthy: true}, nil
 }
+
+type Client struct {
+	ID           string
+	Capacity     int
+	RatePerSec   int
+	RefillPeriod time.Duration
+}
+
+func NewClient(id string, capacity, ratePerSec int) *Client {
+	return &Client{
+		ID:           id,
+		Capacity:     capacity,
+		RatePerSec:   ratePerSec,
+		RefillPeriod: time.Second, // default refill period
+	}
+}
+

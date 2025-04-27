@@ -124,18 +124,36 @@ func main() {
 	}
 	log.Println("All test servers are ready!")
 
-	// внедрение зависимостей
+	// инициализация зависимостей: репозиториев, бизнес логики, обработчиков
 	serverRepo := repositories.NewMemoryServerRepository(cfg.Backends)
+	clientRepo := repositories.NewMemoryClientRepository(cfg.ClientsDB)
 	healthChecker := util.NewHealthChecker(2 * time.Second)
+
 	lbUseCase := usecases.NewLoadBalancer(serverRepo, healthChecker)
-	handler := handlers.NewLoadBalancerHandler(lbUseCase)
+	clientUseCase := usecases.NewClientManager(clientRepo)
+	
+	lbHandler := handlers.NewLoadBalancerHandler(
+		lbUseCase,
+		clientRepo,
+		cfg.RateLimit.DefaultCapacity,
+		cfg.RateLimit.DefaultRatePerSec,
+		time.Duration(cfg.RateLimit.RefillPeriod) * time.Nanosecond,
+	)
+	clientHandler := handlers.NewClientHandler(clientUseCase)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", lbHandler)
+	mux.HandleFunc("/clients/register", clientHandler.RegisterClient)
+	mux.HandleFunc("/clients/update", clientHandler.UpdateClient)
+	mux.HandleFunc("/clients/delete", clientHandler.DeleteClient)
+	mux.HandleFunc("/clients/get", clientHandler.GetClient)
+	mux.HandleFunc("/clients/list", clientHandler.ListClients)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: handler,
+		Handler: mux,
 	}
 
-	// канал для прослушивания сигналов
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 

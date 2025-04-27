@@ -5,9 +5,17 @@ import (
 	"os"
 )
 
+type RateLimitConfig struct {
+	DefaultCapacity   int  `json:"default_capacity"`
+	DefaultRatePerSec int  `json:"default_rate_per_sec"`
+	RefillPeriod      int  `json:"refill_period"`
+}
+
 type Config struct {
-	Port     string   `json:"port"`
-	Backends []string `json:"backends"`
+	Port      string         `json:"port"`
+	Backends  []string       `json:"backends"`
+	RateLimit RateLimitConfig `json:"rate_limit"`
+	ClientsDB string         `json:"clients_db"`
 }
 
 func LoadConfig(path string) (*Config, error) {

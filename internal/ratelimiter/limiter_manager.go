@@ -4,45 +4,50 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"loadbalancer/internal/interfaces/repositories"
 )
 
-// LimiterManager управляет токен-бакетами для разных клиентов.
 type LimiterManager struct {
-	buckets map[string]*TokenBucket
-	mu      sync.Mutex
-
-	// Настройки по умолчанию
-	defaultCapacity   int
-	defaultRefillRate int
-	refillPeriod      time.Duration
+	buckets        map[string]*TokenBucket
+	mu             sync.Mutex
+	clientRepo     repositories.ClientRepository
+	defaultLimiter *TokenBucket
 }
 
-// NewLimiterManager создает новый менеджер лимитеров.
-func NewLimiterManager(capacity, refillRate int, refillPeriod time.Duration) *LimiterManager {
+func NewLimiterManager(clientRepo repositories.ClientRepository, defaultCapacity, defaultRefillRate int, refillPeriod time.Duration) *LimiterManager {
 	return &LimiterManager{
-		buckets:           make(map[string]*TokenBucket),
-		defaultCapacity:   capacity,
-		defaultRefillRate: refillRate,
-		refillPeriod:      refillPeriod,
+		buckets:        make(map[string]*TokenBucket),
+		clientRepo:     clientRepo,
+		defaultLimiter: NewTokenBucket(defaultCapacity, defaultRefillRate, refillPeriod),
 	}
 }
 
-// getOrCreateBucket возвращает бакет для клиента, создавая его при необходимости.
-func (m *LimiterManager) getOrCreateBucket(clientID string) *TokenBucket {
+func (m *LimiterManager) getOrCreateBucket(clientID string) (*TokenBucket, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	bucket, exists := m.buckets[clientID]
-	if !exists {
-		bucket = NewTokenBucket(m.defaultCapacity, m.defaultRefillRate, m.refillPeriod)
-		m.buckets[clientID] = bucket
+	if bucket, exists := m.buckets[clientID]; exists {
+		return bucket, nil
 	}
-	return bucket
+
+	// Try to find client-specific limits
+	client, err := m.clientRepo.FindByID(clientID)
+	if err == nil {
+		bucket := NewTokenBucket(client.Capacity, client.RatePerSec, client.RefillPeriod)
+		m.buckets[clientID] = bucket
+		return bucket, nil
+	}
+
+	// Fall back to default limiter
+	return m.defaultLimiter, nil
 }
 
-// Allow проверяет, можно ли пропустить запрос от клиента.
 func (m *LimiterManager) Allow(ip net.IP) bool {
 	clientID := ip.String()
-	bucket := m.getOrCreateBucket(clientID)
+	bucket, err := m.getOrCreateBucket(clientID)
+	if err != nil {
+		return false
+	}
 	return bucket.Allow()
 }
