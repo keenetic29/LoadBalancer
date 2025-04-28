@@ -31,7 +31,7 @@ func (m *LimiterManager) getOrCreateBucket(clientID string) (*TokenBucket, error
 		return bucket, nil
 	}
 
-	// Try to find client-specific limits
+	// попытка найти лимиты
 	client, err := m.clientRepo.FindByID(clientID)
 	if err == nil {
 		bucket := NewTokenBucket(client.Capacity, client.RatePerSec, client.RefillPeriod)
@@ -39,7 +39,7 @@ func (m *LimiterManager) getOrCreateBucket(clientID string) (*TokenBucket, error
 		return bucket, nil
 	}
 
-	// Fall back to default limiter
+	
 	return m.defaultLimiter, nil
 }
 

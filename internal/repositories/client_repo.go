@@ -12,7 +12,7 @@ import (
 type MemoryClientRepository struct {
 	clients map[string]*domain.Client
 	mu      sync.Mutex
-	file    string // for persistence
+	file    string 
 }
 
 func NewMemoryClientRepository(file string) *MemoryClientRepository {

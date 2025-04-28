@@ -7,11 +7,10 @@ import (
 )
 
 type HealthChecker interface {
-    Check(*url.URL) bool  // Изменено на указатель на url.URL
+    Check(*url.URL) bool 
     Stop()
 }
 
-// Реализация
 type healthChecker struct {
     interval time.Duration
     stopChan chan struct{}

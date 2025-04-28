@@ -30,7 +30,7 @@ func NewClient(id string, capacity, ratePerSec int) *Client {
 		ID:           id,
 		Capacity:     capacity,
 		RatePerSec:   ratePerSec,
-		RefillPeriod: time.Second, // default refill period
+		RefillPeriod: time.Second, 
 	}
 }
 
