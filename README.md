@@ -53,6 +53,23 @@ http://localhost:8080/clients/get?id=user1
 GET /clients/list
 http://localhost:8080/clients/list
 ```
+## Сценарий использования
+1. Создать клиента
+   - Используйте эндпоинт http://localhost:3030/clients/register для создания нового клиента. Передайте данные в формате JSON в теле запроса.
+
+Пример запроса:
+![image](https://github.com/user-attachments/assets/e5f98993-0aee-4ecf-9b62-a79b8edbe3b4)
+
+2. Распределение запросов балансировщиком
+   - Если у клиента хватает токенов установленных rate-limiter-ом, запрос перенаправляется с помощью балансировщика на один из backend-сервисов, описанных в конфигурационном файле ```config.json```, а также в ```docker-compose.yaml```.
+3. Клиент получает ответ от выбранного backend-сервиса.
+
+Пример ответа:
+![image](https://github.com/user-attachments/assets/fec3a973-03b3-4637-9a4d-e075fa65df1f)
+
+В определенный момент колиечество токенов может исчерпаться, и в таком случае будет выведена соответствующая ошибка с сообщением:
+![image](https://github.com/user-attachments/assets/0764f000-9730-41a3-963f-ec6e31e501b6)
 
 ## Запуск проекта
-
+1. Клонируйте репозиторий
+2. Выполните docker-compose up --build
