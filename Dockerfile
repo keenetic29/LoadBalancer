@@ -22,6 +22,9 @@ WORKDIR /app
 COPY --from=builder /app/loadbalancer .
 COPY config.json .
 
+# Создаем файл clients.json и устанавливаем права 
+RUN touch /app/clients.json && chmod 666 /app/clients.json
+
 # Открываем порт
 EXPOSE 8080
 

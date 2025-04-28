@@ -1,1 +1,1 @@
-{"user1":{"ID":"user1","Capacity":10,"RatePerSec":1,"RefillPeriod":1000000000}}
+{"user1":{"ID":"user1","Capacity":10,"RatePerSec":1,"RefillPeriod":1000000000},"user2":{"ID":"user2","Capacity":10,"RatePerSec":1,"RefillPeriod":1000000000},"user3":{"ID":"user3","Capacity":10,"RatePerSec":1,"RefillPeriod":1000000000}}
